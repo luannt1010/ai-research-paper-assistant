@@ -3,6 +3,7 @@ import unicodedata
 import traceback
 from tqdm import tqdm
 from pathlib import Path
+from typing import List
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 
@@ -25,7 +26,7 @@ def clean_english_text(text: str) -> str:
 
 class SimpleLoader:
 
-    def load_pdf(self, pdf_file: str):
+    def load_pdf(self, pdf_file: str) -> List[Document]:
         path = Path(pdf_file)
         docs = PyPDFLoader(pdf_file, extract_images=True).load()
         for doc in docs:
@@ -36,7 +37,7 @@ class SimpleLoader:
             doc.page_content = clean_english_text(doc.page_content)
         return docs
 
-    def load_dir(self, dir_path: str) -> list[Document]:
+    def load_dir(self, dir_path: str) -> List[Document]:
         directory = Path(dir_path)
         if not directory.exists():
             raise FileExistsError(f"Directory not found: {directory}")
