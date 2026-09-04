@@ -11,7 +11,7 @@ class BaseLLM(ABC):
         self.temperature = temperature
         self.kwargs = kwargs
 
-        self.model: BaseChatModel | None = None
+        self._model: BaseChatModel | None = None
 
     @abstractmethod
     def _build(self) -> BaseChatModel:
@@ -19,9 +19,9 @@ class BaseLLM(ABC):
 
     @property
     def generator(self) -> BaseChatModel:
-        if self.model is None:
-            self.model = self._build()
-        return self.model
+        if self._model is None:
+            self._model = self._build()
+        return self._model
 
     def generate(self, message: LanguageModelInput) -> BaseMessage:
         return self.generator.invoke(message)
