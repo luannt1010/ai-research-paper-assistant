@@ -52,3 +52,4 @@ checkpoints/
 *.onnx
 
 data/
+papers/
