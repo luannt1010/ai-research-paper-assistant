@@ -11,4 +11,4 @@ prompt_template = ("You are a strict, citation-focused assistant for a private k
 "Question: {question}"
 )
 
-promt = ChatPromptTemplate.from_template(prompt_template)
+prompt = ChatPromptTemplate.from_template(prompt_template)

@@ -14,7 +14,7 @@ class BaseEmbedder(ABC):
 
     @abstractmethod
     def _build(self) -> Embeddings:
-        """Create and return an Embeddings object for the corresponding provider."""
+        pass
 
     @property
     def embedder(self) -> Embeddings:
@@ -22,9 +22,13 @@ class BaseEmbedder(ABC):
             self._embedder = self._build()
         return self._embedder
 
-    def embed_documents(self, chunks: list[Document]) -> List[List[float]]:
-        chunks = [chunk.page_content for chunk in chunks]
-        return self.embedder.embed_documents(chunks)
+    def embed_documents(self, documents: list[Document], batch_size: int = 32) -> List[List[float]]:
+        embeddings = []
+        for start in range(0, len(documents), batch_size):
+            chunks = [doc.page_content for doc in documents[start:start+batch_size]]
+            embedding = self.embedder.embed_documents(chunks)
+            embeddings.extend(embedding)
+        return embeddings
 
     def embed_query(self, query: str) -> List[float]:
         return self.embedder.embed_query(query)

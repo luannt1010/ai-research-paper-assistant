@@ -1,0 +1,11 @@
+vector_store:
+  default_provider: "pgvector"
+  supported_providers:
+    - pgvector
+    - qdrant
+
+pgvector:
+  table_name: "chunks_db"
+
+qdrant:
+  collection_name: "chunks_db"

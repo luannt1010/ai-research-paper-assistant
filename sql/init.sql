@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS chunks_db (
     document_id VARCHAR(255),
     content TEXT NOT NULL,
     metadata JSONB,
-    embedding VECTOR(1024) NOT NULL,
+    embedding VECTOR(2046) NOT NULL,
+    benchmark BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -1,4 +1,4 @@
-from src.embedder.base import BaseEmbedder
+from .base import BaseEmbedder
 from langchain_ollama.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 

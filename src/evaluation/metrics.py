@@ -4,10 +4,8 @@ import pandas as pd
 from tqdm import tqdm
 from typing import List, Tuple, Dict
 
-from openai import AsyncOpenAI
-
-from ragas.llms import llm_factory
-from ragas.embeddings.base import embedding_factory
+from ragas.llms import llm_factory, LangchainLLMWrapper
+from ragas.embeddings.base import embedding_factory, LangchainEmbeddingsWrapper
 from ragas.metrics.collections import (
     ContextPrecision,
     ContextRecall,
@@ -16,8 +14,10 @@ from ragas.metrics.collections import (
     FactualCorrectness
 )
 
+from src.generation import OllamaLLM
+from src.embedder import OllamaEmbedder
 
-def hit_rate_at_k(docs_true: List[List[int]], queries: List[List[int]], top_k: int = 5) -> float:
+def hit_rate_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int = 5) -> float:
     """
     Hit rate = Number of Queries with at least one relevant document retrieved / Total number of queries
     """
@@ -30,7 +30,7 @@ def hit_rate_at_k(docs_true: List[List[int]], queries: List[List[int]], top_k: i
             hits += 1
     return hits / len(docs_true)
 
-def precision_recall_at_k(docs_true: List[List[int]], queries: List[List[int]], top_k: int = 5) -> Tuple[float, float]:
+def precision_recall_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int = 5) -> Tuple[float, float]:
     """
     P@k = |relevant documents in top k| / k
     R@k = |relevant documents in top k| / |total relevant documents|
@@ -45,7 +45,7 @@ def precision_recall_at_k(docs_true: List[List[int]], queries: List[List[int]], 
         p.append(tmp / top_k)
     return (np.mean(p), np.mean(r))
 
-def mean_reciprocal_rank(docs_true: List[List[int]], queries: List[List[int]]) -> float:
+def mean_reciprocal_rank(docs_true: List[List[str]], queries: List[List[str]]) -> float:
     """
     MRR = (1 / N) * Σ (1 / rank_i)
     Where:
@@ -62,7 +62,7 @@ def mean_reciprocal_rank(docs_true: List[List[int]], queries: List[List[int]]) -
         reciprocal_ranks.append(rr)
     return np.mean(reciprocal_ranks)
 
-def mean_average_precision(docs_true: List[List[int]], queries: List[List[int]]) -> float:
+def mean_average_precision(docs_true: List[List[str]], queries: List[List[str]]) -> float:
     """
     MAP = (1 / N) * Σ AP_i
     AP_i = (1 / R_i) * Σ (P_i(k) * rel_i(k))
@@ -84,7 +84,7 @@ def mean_average_precision(docs_true: List[List[int]], queries: List[List[int]])
         ap.append(p / len(doc_true) if doc_true else 0)
     return np.mean(ap)
 
-def ndcg_at_k(docs_true: List[List[int]], queries: List[List[int]], top_k: int = 5) -> float:
+def ndcg_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int = 5) -> float:
     """
     nDCG_p = DCG_p / IDCG_p
     DCG_p = Σ ((2^rel_i - 1) / log2(i + 1))
@@ -109,10 +109,12 @@ def ndcg_at_k(docs_true: List[List[int]], queries: List[List[int]], top_k: int =
     return np.mean(ndcg_scores)
 
 def create_evaluator(llm_model_name: str = "llama3.1", embed_model_name: str = "embeddinggemma:300m"):
-    client = AsyncOpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
-    llm = llm_factory(model=llm_model_name, client=client, provider="openai", temperature=0, max_tokens=4096)
-    embedder = embedding_factory(provider="openai", model=embed_model_name, client=client)
-    print("Load evaluator OK")
+    # client = AsyncOpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
+    # llm = llm_factory(model=llm_model_name, client=client, provider="openai", temperature=0, max_tokens=8192)
+    # embedder = embedding_factory(provider="openai", model=embed_model_name, client=client)
+    # print("Load evaluator OK")
+    llm = OllamaLLM(model_name=llm_model_name, temperature=0, num_gpu=1, num_ctx=8192, reasoning=False).generator
+    embedder = OllamaEmbedder(model_name=embed_model_name, dimensions=2046, num_ctx=8192, num_gpu=1).embedder
     return llm, embedder
 
 def compute_mean_gen_results(results: pd.DataFrame) -> Dict[str, float]:
@@ -122,9 +124,7 @@ def compute_mean_gen_results(results: pd.DataFrame) -> Dict[str, float]:
         results[col] = numeric_df[col].mean()
     return results
 
-async def evaluate_context_gen_quality(eval_data: List[dict], llm_model_name: str = "llama3.1", embed_model_name: str = "embeddinggemma:300m") -> pd.DataFrame:
-
-    llm, embedder = create_evaluator(llm_model_name, embed_model_name)
+async def evaluate_context_gen_quality(llm, embedder, eval_data: List[dict]) -> pd.DataFrame:
 
     context_p = ContextPrecision(llm=llm)
     context_r = ContextRecall(llm=llm)
