@@ -4,8 +4,9 @@ import pandas as pd
 from tqdm import tqdm
 from typing import List, Tuple, Dict
 
-from ragas.llms import llm_factory, LangchainLLMWrapper
-from ragas.embeddings.base import embedding_factory, LangchainEmbeddingsWrapper
+from openai import AsyncOpenAI
+from ragas.llms import llm_factory
+from ragas.embeddings.base import embedding_factory
 from ragas.metrics.collections import (
     ContextPrecision,
     ContextRecall,
@@ -40,9 +41,10 @@ def precision_recall_at_k(docs_true: List[List[str]], queries: List[List[str]], 
     r, p = [], []
     for query, doc_true in zip(queries, docs_true):
         q_top_k = query[:top_k]
-        tmp = len([doc for doc in q_top_k if doc in doc_true])
-        r.append(tmp / len(doc_true) if doc_true else 0)
-        p.append(tmp / top_k)
+        set_doc_true = set(doc_true)
+        hits = len([doc for doc in q_top_k if doc in set_doc_true])
+        r.append(hits / len(doc_true) if doc_true else 0)
+        p.append(hits / top_k)
     return (np.mean(p), np.mean(r))
 
 def mean_reciprocal_rank(docs_true: List[List[str]], queries: List[List[str]]) -> float:
@@ -109,12 +111,9 @@ def ndcg_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int =
     return np.mean(ndcg_scores)
 
 def create_evaluator(llm_model_name: str = "llama3.1", embed_model_name: str = "embeddinggemma:300m"):
-    # client = AsyncOpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
-    # llm = llm_factory(model=llm_model_name, client=client, provider="openai", temperature=0, max_tokens=8192)
-    # embedder = embedding_factory(provider="openai", model=embed_model_name, client=client)
-    # print("Load evaluator OK")
-    llm = OllamaLLM(model_name=llm_model_name, temperature=0, num_gpu=1, num_ctx=8192, reasoning=False).generator
-    embedder = OllamaEmbedder(model_name=embed_model_name, dimensions=2046, num_ctx=8192, num_gpu=1).embedder
+    client = AsyncOpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
+    llm = llm_factory(model=llm_model_name, client=client, provider="openai", temperature=0, max_tokens=8192)
+    embedder = embedding_factory(provider="openai", model=embed_model_name, client=client)
     return llm, embedder
 
 def compute_mean_gen_results(results: pd.DataFrame) -> Dict[str, float]:
