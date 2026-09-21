@@ -1,11 +1,10 @@
 from typing import List
-from src.database import PGVectorStore
-from src.database import QdrantVectorStore
-from src.embedder import OllamaEmbedder
+from src.database import BaseVectorStore
+from src.embedder import BaseEmbedder
 from .base import BaseRetriever
 
 class DenseRetriever(BaseRetriever):
-    def __init__(self, embedder: OllamaEmbedder, repository: PGVectorStore | QdrantVectorStore):
+    def __init__(self, embedder: BaseEmbedder, repository: BaseVectorStore):
         self.embedder = embedder
         self.repository = repository
 
