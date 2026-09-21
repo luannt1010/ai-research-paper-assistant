@@ -1,13 +1,12 @@
 from typing import List
-from src.database import PGVectorStore
-from src.database import QdrantVectorStore
-from src.embedder import OllamaEmbedder
+from src.database import BaseVectorStore
+from src.embedder import BaseEmbedder
 from .dense import DenseRetriever
 from .bm25 import BM25
 from .base import BaseRetriever
 
 class HybridRetriever(BaseRetriever):
-    def __init__(self, embedder: OllamaEmbedder, repository: PGVectorStore | QdrantVectorStore):
+    def __init__(self, embedder: BaseEmbedder, repository: BaseVectorStore):
 
         self.bm25 = BM25()
         self.repo = repository
