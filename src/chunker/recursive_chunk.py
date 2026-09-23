@@ -23,4 +23,4 @@ class RecursiveChunk(BaseChunker):
             separators=SEPARATOR)
 
     def split(self, documents: list[Document]) -> list[Document]:
-        return self.splitter.split_documents(documents)
+        return self._enrich(self.splitter.split_documents(documents))
