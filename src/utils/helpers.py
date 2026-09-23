@@ -1,3 +1,4 @@
+import pandas as pd
 from pathlib import Path
 from src.generation import prompt
 from src.retriever import HybridRetriever
@@ -5,7 +6,6 @@ from langchain_core.documents import Document
 from datasets import load_dataset
 from collections import defaultdict
 from typing import Dict, Tuple, List
-from tqdm import tqdm
 
 
 
@@ -17,6 +17,12 @@ def format_context(docs):
         for doc in docs
     )
 
+def compute_mean_df(results: pd.DataFrame) -> Dict[str, float]:
+    numeric_df = results.select_dtypes(include=["float", "int"])
+    results = {}
+    for col in numeric_df.columns:
+        results[col] = numeric_df[col].mean()
+    return results
 
 def load_scifact():
     """
@@ -138,19 +144,5 @@ def build_scifact_data() -> Tuple[Dict[str, Dict[str, str]], Dict[str, str], Dic
 
     return corpus, test_queries, dict(qrels)
 
-def make_retrieve_ids(queries: Dict[str, str], qrels: Dict[str, List[str]], retriever, reranker=None, top_k: int = 5) -> Tuple[List[List[str]], List[List[str]]]:
-    predict_chunks_ids = []
-    gt_chunks_ids = []
-    for q_id, text in tqdm(queries.items(), desc="PreparingIDS"):
-        if q_id in qrels:
-            gt_chunks_ids.append(qrels[q_id])
-            searched = retriever.retrieve(text, top_k)
-            if reranker is not None:
-                searched = reranker.rerank(text, searched, top_k)
-            ids = []
-            for doc in searched:
-                ids.append(doc["document_id"])
-            predict_chunks_ids.append(ids)
-    return predict_chunks_ids, gt_chunks_ids
 
 
