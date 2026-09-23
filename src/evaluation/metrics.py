@@ -1,22 +1,5 @@
-import time
 import numpy as np
-import pandas as pd
-from tqdm import tqdm
-from typing import List, Tuple, Dict
-
-from openai import AsyncOpenAI
-from ragas.llms import llm_factory
-from ragas.embeddings.base import embedding_factory
-from ragas.metrics.collections import (
-    ContextPrecision,
-    ContextRecall,
-    AnswerRelevancy,
-    Faithfulness,
-    FactualCorrectness
-)
-
-from src.generation import OllamaLLM
-from src.embedder import OllamaEmbedder
+from typing import List
 
 def hit_rate_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int = 5) -> float:
     """
@@ -31,21 +14,33 @@ def hit_rate_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: i
             hits += 1
     return hits / len(docs_true)
 
-def precision_recall_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int = 5) -> Tuple[float, float]:
+def precision_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int = 5) -> float:
     """
     P@k = |relevant documents in top k| / k
-    R@k = |relevant documents in top k| / |total relevant documents|
     """
     if top_k == 0 or top_k < 0:
         raise ValueError("Top k muse be greater than 0")
-    r, p = [], []
+    p = []
+    for query, doc_true in zip(queries, docs_true):
+        q_top_k = query[:top_k]
+        set_doc_true = set(doc_true)
+        hits = len([doc for doc in q_top_k if doc in set_doc_true])
+        p.append(hits / top_k)
+    return np.mean(p)
+
+def recall_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int = 5) -> float:
+    """
+        P@k = |relevant documents in top k| / k
+    """
+    if top_k == 0 or top_k < 0:
+        raise ValueError("Top k muse be greater than 0")
+    r = []
     for query, doc_true in zip(queries, docs_true):
         q_top_k = query[:top_k]
         set_doc_true = set(doc_true)
         hits = len([doc for doc in q_top_k if doc in set_doc_true])
         r.append(hits / len(doc_true) if doc_true else 0)
-        p.append(hits / top_k)
-    return (np.mean(p), np.mean(r))
+    return np.mean(r)
 
 def mean_reciprocal_rank(docs_true: List[List[str]], queries: List[List[str]]) -> float:
     """
@@ -109,65 +104,5 @@ def ndcg_at_k(docs_true: List[List[str]], queries: List[List[str]], top_k: int =
         idcg = sum([1 / np.log2(idx + 1) for idx, _ in enumerate(ideal_docs_k, start=1)])
         ndcg_scores.append(dcg / idcg if idcg > 0 else 0)
     return np.mean(ndcg_scores)
-
-def create_evaluator(llm_model_name: str = "llama3.1", embed_model_name: str = "embeddinggemma:300m"):
-    client = AsyncOpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
-    llm = llm_factory(model=llm_model_name, client=client, provider="openai", temperature=0, max_tokens=8192)
-    embedder = embedding_factory(provider="openai", model=embed_model_name, client=client)
-    return llm, embedder
-
-def compute_mean_gen_results(results: pd.DataFrame) -> Dict[str, float]:
-    numeric_df = results.select_dtypes(include=["float", "int"])
-    results = {}
-    for col in numeric_df.columns:
-        results[col] = numeric_df[col].mean()
-    return results
-
-async def evaluate_context_gen_quality(llm, embedder, eval_data: List[dict]) -> pd.DataFrame:
-
-    context_p = ContextPrecision(llm=llm)
-    context_r = ContextRecall(llm=llm)
-    faithfulness = Faithfulness(llm=llm)
-    ans_relevancy = AnswerRelevancy(llm=llm, embeddings=embedder)
-    factual_correctness = FactualCorrectness(llm=llm)
-
-    results = []
-
-    for sample in tqdm(eval_data, desc="Evaluating"):
-
-        start = time.perf_counter()
-
-        user_input = sample["user_input"]
-        reference = sample["reference"]
-        retrieved_contexts = sample["retrieved_contexts"]
-        response = sample["response"]
-
-        p_score = await context_p.ascore(user_input=user_input, retrieved_contexts=retrieved_contexts, reference=reference)
-        r_score = await context_r.ascore(user_input=user_input, retrieved_contexts=retrieved_contexts, reference=reference)
-        faithfulness_score = await faithfulness.ascore(user_input=user_input, retrieved_contexts=retrieved_contexts, response=response)
-        ans_relevancy_score = await ans_relevancy.ascore(user_input=user_input, response=response)
-        factual_correctness_score = await factual_correctness.ascore(reference=reference, response=response)
-
-        end = time.perf_counter()
-
-        results.append({
-            "user_input": user_input,
-            "reference": reference,
-            "response": response,
-            "retrieved_contexts": retrieved_contexts,
-
-            "context_precision": float(p_score.value),
-            "context_recall": float(r_score.value),
-
-            "faithfulness": float(faithfulness_score.value),
-            "answer_relevancy": float(ans_relevancy_score.value),
-            "factual_correctness": float(factual_correctness_score.value),
-
-            "Time": (end-start)/60
-        })
-
-    return pd.DataFrame(results)
-
-
 
 
