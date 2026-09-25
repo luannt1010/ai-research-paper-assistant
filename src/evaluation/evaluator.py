@@ -61,18 +61,20 @@ class Evaluator:
             self,
             queries: Dict[str, str],
             qrels: Dict[str, List[str]],
-            candidate_k: int = 5,
-            top_k: int | None = None) -> Tuple[List[List[str]], List[List[str]]]:
+            candidate_k: int | None = None,
+            top_k: int = 5) -> Tuple[List[List[str]], List[List[str]]]:
         predict_chunks_ids = []
         gt_chunks_ids = []
         for q_id, text in tqdm(queries.items(), desc="PreparingIDS"):
             if q_id in qrels:
                 gt_chunks_ids.append(qrels[q_id])
-                searched = self.retriever.retrieve(text, candidate_k)
                 if self.reranker is not None:
-                    if top_k is None:
-                        raise ValueError("top_k is none value.")
+                    if candidate_k is None:
+                        raise ValueError("candidate_k is none value.")
+                    searched = self.retriever.retrieve(text, candidate_k)
                     searched = self.reranker.rerank(text, searched, top_k)
+                else:
+                    searched = self.retriever.retrieve(text, top_k)
                 ids = []
                 for doc in searched:
                     ids.append(doc["document_id"])
@@ -138,8 +140,8 @@ class Evaluator:
             queries: Dict[str, str],
             qrels: Dict[str, List[str]],
             retrieve_metrics: List[str],
-            candidate_k: int = 5,
-            top_k: int | None = None) -> pd.DataFrame:
+            candidate_k: int | None = None,
+            top_k: int = 5) -> pd.DataFrame:
 
         if not retrieve_metrics:
             return pd.DataFrame([{}])
@@ -175,8 +177,8 @@ class Evaluator:
             eval_context_gen_data: List[dict],
             context_gen_metrics: List[str],
             retrieve_metrics: List[str],
-            candidate_k: int = 5,
-            top_k: int | None = None) -> Dict[str, pd.DataFrame]:
+            candidate_k: int | None = None,
+            top_k: int = 5) -> Dict[str, pd.DataFrame]:
 
         retrieve_results = self._evaluate_retrieve_quality(queries, qrels, retrieve_metrics, candidate_k, top_k)
         context_gen_results = await self._evaluate_context_gen_quality(eval_context_gen_data, context_gen_metrics)
