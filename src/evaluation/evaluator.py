@@ -141,7 +141,8 @@ class Evaluator:
             qrels: Dict[str, List[str]],
             retrieve_metrics: List[str],
             candidate_k: int | None = None,
-            top_k: int = 5) -> pd.DataFrame:
+            top_k: int = 5,
+            retrieve_top_k: int = 5) -> pd.DataFrame:
 
         if not retrieve_metrics:
             return pd.DataFrame([{}])
@@ -150,23 +151,23 @@ class Evaluator:
 
         retrieve_results = {}
         if "precision" in retrieve_metrics:
-            precision = precision_at_k(gt_chunks_ids, predict_chunks_ids, top_k)
-            retrieve_results[f"precision@{top_k}"] = precision
+            precision = precision_at_k(gt_chunks_ids, predict_chunks_ids, retrieve_top_k)
+            retrieve_results[f"precision@{retrieve_top_k}"] = precision
         if "recall" in retrieve_metrics:
-            recall = recall_at_k(gt_chunks_ids, predict_chunks_ids, top_k)
-            retrieve_results[f"recall@{top_k}"] = recall
+            recall = recall_at_k(gt_chunks_ids, predict_chunks_ids, retrieve_top_k)
+            retrieve_results[f"recall@{retrieve_top_k}"] = recall
         if "hit" in retrieve_metrics:
-            hit_score = hit_rate_at_k(gt_chunks_ids, predict_chunks_ids, top_k)
-            retrieve_results[f"hit@{top_k}"] = hit_score
+            hit_score = hit_rate_at_k(gt_chunks_ids, predict_chunks_ids, retrieve_top_k)
+            retrieve_results[f"hit@{retrieve_top_k}"] = hit_score
         if "mrr" in retrieve_metrics or "mean_reciprocal_rank" in retrieve_metrics:
             mrr_score = mean_reciprocal_rank(gt_chunks_ids, predict_chunks_ids)
-            retrieve_results[f"mrr@{top_k}"] = mrr_score
+            retrieve_results[f"mrr"] = mrr_score
         if "map" in retrieve_metrics or "mean_average_precision" in retrieve_metrics:
             map_score = mean_average_precision(gt_chunks_ids, predict_chunks_ids)
-            retrieve_results[f"map@{top_k}"] = map_score
+            retrieve_results[f"map"] = map_score
         if "ndcg" in retrieve_metrics:
-            ndcg_score = ndcg_at_k(gt_chunks_ids, predict_chunks_ids, top_k)
-            retrieve_results[f"ndcg@{top_k}"] = ndcg_score
+            ndcg_score = ndcg_at_k(gt_chunks_ids, predict_chunks_ids, retrieve_top_k)
+            retrieve_results[f"ndcg@{retrieve_top_k}"] = ndcg_score
 
         return pd.DataFrame([retrieve_results])
 
@@ -178,9 +179,10 @@ class Evaluator:
             context_gen_metrics: List[str],
             retrieve_metrics: List[str],
             candidate_k: int | None = None,
-            top_k: int = 5) -> Dict[str, pd.DataFrame]:
+            top_k: int = 5,
+            retrieve_top_k: int = 5) -> Dict[str, pd.DataFrame]:
 
-        retrieve_results = self._evaluate_retrieve_quality(queries, qrels, retrieve_metrics, candidate_k, top_k)
+        retrieve_results = self._evaluate_retrieve_quality(queries, qrels, retrieve_metrics, candidate_k, top_k, retrieve_top_k)
         context_gen_results = await self._evaluate_context_gen_quality(eval_context_gen_data, context_gen_metrics)
 
         print("Evaluating progress finished successfully!")
