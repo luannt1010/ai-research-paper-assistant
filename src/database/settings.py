@@ -62,7 +62,9 @@ class Settings:
     @property
     def qdrant_api_key(self):
         value = os.getenv("QDRANT_DATABASE_API_KEY")
-        return value or None
+        if not value:
+            raise ValueError("QDRANT_DATABASE_API_KEY is not set in .env")
+        return value 
 
     @property
     def qdrant_config(self) -> dict:
