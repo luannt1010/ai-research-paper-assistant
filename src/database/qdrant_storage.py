@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-
+from uuid import uuid4
 from langchain_core.documents import Document
 from qdrant_client import QdrantClient, models
 from .base import BaseVectorStore
@@ -48,9 +48,9 @@ class QdrantVectorStore(BaseVectorStore):
 
     def insert(self, documents: List[Document], embeddings: List[List[float]]) -> None:
         points = []
-        for i, (chunk, embedding) in enumerate(zip(documents, embeddings), start=1):
+        for chunk, embedding in zip(documents, embeddings):
             point = models.PointStruct(
-                id=i,
+                id=str(uuid4()),
                 vector=embedding,
                 payload={
                     "document_id": chunk.metadata.get("document_id"),
@@ -127,7 +127,7 @@ class QdrantVectorStore(BaseVectorStore):
                 "document_id": payload.get("document_id"),
                 "content": payload.get("content"),
                 "metadata": payload.get("metadata"),
-                "similarity": point.score
+                "similarity": None
             })
         return results
 
