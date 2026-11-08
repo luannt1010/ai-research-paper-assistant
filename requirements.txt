@@ -22,6 +22,11 @@ pandas>=2,<3
 numpy>=2,<3
 
 python-dotenv>=1,<2
+PyYAML>=6,<7
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+httpx>=0.27,<1
+python-multipart>=0.0.20,<1
 
 rapidocr-onnxruntime
 pytest
