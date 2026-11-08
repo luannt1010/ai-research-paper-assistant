@@ -6,9 +6,10 @@ from .bm25 import BM25
 from .base import BaseRetriever
 
 class HybridRetriever(BaseRetriever):
-    def __init__(self, embedder: BaseEmbedder, repository: BaseVectorStore):
+    def __init__(self, embedder: BaseEmbedder, repository: BaseVectorStore, candidate_k: int = 50, k1: float = 1.2, b: float = 0.75):
 
-        self.bm25 = BM25()
+        self.candidate_k = candidate_k
+        self.bm25 = BM25(k1=k1, b=b)
         self.repo = repository
         self.dense_retriever = DenseRetriever(embedder, repository)
 
@@ -51,9 +52,9 @@ class HybridRetriever(BaseRetriever):
 
     def retrieve(self, query: str, top_k: int=5) -> List[dict]:
 
-        dense_results = self.dense_retriever.retrieve(query, 20)
+        dense_results = self.dense_retriever.retrieve(query, self.candidate_k)
 
-        spare_results = self.bm25.retrieve(query, 20)
+        spare_results = self.bm25.retrieve(query, self.candidate_k)
 
         return self._rrf(spare_results, dense_results, top_k=top_k)
 
