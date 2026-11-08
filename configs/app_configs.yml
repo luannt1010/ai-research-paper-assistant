@@ -1,0 +1,35 @@
+# Providers implemented in this project. Ollama models must be available locally.
+embedding:
+  provider: ollama
+  model_name: qwen3-embedding:8b
+  options:
+    dimensions: 1024
+    num_ctx: 4096
+
+# Existing chunkers measure characters, not tokens.
+# Also supported: semantic (threshold), hierarchical (parent/child size and overlap).
+chunking:
+  strategy: recursive
+  length_unit: character
+  chunk_size: 1200
+  chunk_overlap: 120
+
+llm:
+  provider: ollama
+  model_name: qwen3.5:2b
+  temperature: 0.0
+  options:
+    reasoning: false
+    num_predict: 2048
+
+reranker:
+  provider: sentence_transformers
+  model_name: BAAI/bge-reranker-v2-m3
+  device: cpu
+  batch_size: 8
+  max_length: 1024
+
+retrieval:
+  # Number of retrieved candidates before reranking, not the RRF formula constant.
+  rrf_k: 10
+  rerank_k: 5
