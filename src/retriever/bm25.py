@@ -30,7 +30,7 @@ class BM25(BaseRetriever):
         for doc in self.documents:
 
             tokens = tokenize(doc["content"])
-            doc["tf"] = Counter(tokens)
+            doc["term_frequency"] = Counter(tokens)
             self.doc_length.append(len(tokens))
 
             for token in set(tokens):
@@ -43,8 +43,7 @@ class BM25(BaseRetriever):
         return math.log(1 + (self.num_docs - df + 0.5) / (df + 0.5))
 
     def _score_docs(self, query_tokens: List[str], doc: dict, doc_length: int) -> float:
-
-        tf = doc["tf"]
+        tf = doc["term_frequency"]
         score = 0
         for term in query_tokens:
             tf_t = tf.get(term, 0)
@@ -56,6 +55,10 @@ class BM25(BaseRetriever):
         return score
 
     def retrieve(self, query: str, top_k: int = 5) -> List[dict]:
+        if not self.documents:
+            raise RuntimeError(
+                "BM25 has not been fitted. Call fit() before retrieve()."
+            )
         query_tokens = tokenize(query)
         results = []
         for idx, doc in enumerate(self.documents):
