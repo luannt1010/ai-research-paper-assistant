@@ -1,3 +1,4 @@
+import os
 import requests
 import streamlit as st
 
@@ -27,7 +28,8 @@ class APIClient:
 def get_api_client() -> APIClient:
     """Giữ lại client dùng địa chỉ mặc định qua các lần rerun."""
     if "api_client" not in st.session_state:
-        st.session_state.api_client = APIClient()
+        # Đọc API_BASE_URL đã khai báo, nếu k có dùng mặc định local
+        st.session_state.api_client = APIClient(os.getenv("API_BASE_URL", "http://127.0.0.1:8000"))
     return st.session_state.api_client
 
 
