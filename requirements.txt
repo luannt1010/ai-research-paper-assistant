@@ -30,3 +30,7 @@ python-multipart>=0.0.20,<1
 
 rapidocr-onnxruntime
 pytest
+
+streamlit>=1.37
+requests
+qdrant-client
