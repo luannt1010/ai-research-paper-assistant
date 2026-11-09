@@ -1,0 +1,12 @@
+.git/
+.venv/
+.idea/
+.vscode/
+**/__pycache__/
+.pytest_cache/
+
+.env
+.env.*
+papers/
+data/
+notebooks/
