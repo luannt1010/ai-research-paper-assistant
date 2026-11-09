@@ -19,9 +19,12 @@ class RAGChain:
             embedder=embedder,
             repository=repository,
         )
-        self.hybrid_searcher.fit()
+        self.refresh_index()
 
         self._chain = self.get_chain()
+
+    def refresh_index(self) -> None:
+        self.hybrid_searcher.fit()
 
     def _retrieve_context(self, inputs: dict) -> dict:
         question = inputs["question"]
