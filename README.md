@@ -129,15 +129,19 @@ The notebooks document the workflow:
 
 Update the notebooks' absolute local paths before running them. Use a separate benchmark database: the preparation and benchmark notebooks contain calls that clear the vector store before inserting their evaluation corpus. Some notebook cells use CUDA; select CPU if CUDA is unavailable.
 
-## Installation (Conda)
+## Installation
 
-### 1. Prerequisites
+Choose [Local (Conda)](#local-conda) or [Docker Compose](#docker-compose).
+
+### Local (Conda)
+
+#### 1. Prerequisites
 
 Install [Miniconda or Anaconda](https://docs.conda.io/projects/conda/en/stable/user-guide/install/index.html) and [Ollama](https://docs.ollama.com/quickstart), and create a [Supabase](https://supabase.com/) account.
 
 Run the following commands from the repository root. The setup below uses Supabase PostgreSQL with pgvector and Python 3.12. The source uses Python 3.12-compatible f-string syntax.
 
-### 2. Create the Conda environment
+#### 2. Create the Conda environment
 
 ```bash
 conda create -n paper-assistant python=3.12 -y
@@ -147,7 +151,7 @@ pip install -r requirements.txt
 
 The Qdrant client is needed because the database package imports both adapters, even when pgvector is selected. See the [Conda environment guide](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html) for environment management.
 
-### 3. Create the Supabase database
+#### 3. Create the Supabase database
 
 1. Create a project in the [Supabase Dashboard](https://supabase.com/dashboard).
 2. Open the project's **SQL Editor**.
@@ -155,7 +159,7 @@ The Qdrant client is needed because the database package imports both adapters, 
 
 Keep the vector dimension in the table consistent with `embedding.options.dimensions` in `configs/app_configs.yml`.
 
-### 4. Configure the environment variables
+#### 4. Configure the environment variables
 
 In your Supabase project, click **Connect**, select **Session pooler**, and copy the PostgreSQL connection string. Replace its password placeholder with your project's database password. See the [Supabase connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres) for details.
 
@@ -171,7 +175,7 @@ PG_DATABASE_URL=[YOUR_SUPABASE_POSTGRES_CONNECTION_STRING]
 
 Set `PG_DATABASE_URL` to the complete PostgreSQL URI copied from Supabase, including the username, password, host, port, and database name. URL-encode reserved characters in the password and use `sslmode=require` in the connection string. Leave `vector_store.default_provider` set to `pgvector` in `configs/vectordb_config.yml`.
 
-### 5. Customize the app configuration
+#### 5. Customize the app configuration
 
 Open [configs/app_configs.yml](configs/app_configs.yml) and choose the models and pipeline settings you want to use before preparing the models.
 
@@ -193,7 +197,7 @@ The current factory supports `ollama` for the embedding and LLM providers and `s
 
 Changing the embedding model or its dimensions requires regenerating the stored embeddings and keeping the database vector column compatible. Restart the API after changing the app configuration so the pipeline loads the new settings.
 
-### 6. Prepare the models
+#### 6. Prepare the models
 
 Use the model names selected in [Customize the app configuration](#5-customize-the-app-configuration). Download the Ollama models specified by `embedding.model_name` and `llm.model_name`. For the default configuration, run:
 
@@ -212,7 +216,7 @@ The application uses the local Ollama service. See the [Ollama CLI reference](ht
 
 If you choose different models in the configuration, replace the names in the `ollama pull` commands accordingly. The reranker uses `reranker.model_name` and is downloaded separately by Sentence Transformers.
 
-### 7. Start the API and Streamlit app
+#### 7. Start the API and Streamlit app
 
 In the first terminal:
 
@@ -241,7 +245,7 @@ In the sidebar, select **PDF files** or **Folder**, enter paths accessible to th
 
 The current API constructs its RAG pipeline and in-memory BM25 index at startup. After adding documents, restart the API process to rebuild that index, especially when starting from an empty database. The dense search uses the database directly, while the BM25 index otherwise retains the corpus loaded at startup.
 
-### 8. Optional: run the benchmark notebooks
+#### 8. Optional: run the benchmark notebooks
 
 Install the notebook tools and additional experiment dependencies in the same environment:
 
@@ -254,3 +258,119 @@ python -m jupyterlab
 ```
 
 Select the **Python (paper-assistant)** kernel, supply the local datasets and papers, update notebook paths, and follow the workflow in the Benchmark section. Keep experiment database contents separate from the documents used by the application.
+
+### Docker Compose
+
+This setup runs two services, `backend` and `frontend`, using the same `paper-assistant:latest` image. Supabase hosts the database, and Ollama runs on your host machine. Conda is not required for this setup.
+
+The commands below use Windows PowerShell and should be run from the repository root.
+
+#### 1. Prepare Docker and the project files
+
+Install [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) and start it with Linux containers enabled.
+
+Complete the [Supabase setup](#3-create-the-supabase-database), [environment configuration](#4-configure-the-environment-variables), [app configuration](#5-customize-the-app-configuration), and [model downloads](#6-prepare-the-models) described above. Create the local PDF directory if needed:
+
+```powershell
+New-Item -ItemType Directory -Force papers | Out-Null
+```
+
+The Compose file mounts these files and directories into the backend:
+
+| Host path | Backend path | Purpose |
+| --- | --- | --- |
+| `./.env` | `/app/.env` | Supabase connection settings |
+| `./papers` | `/app/papers` | PDF documents to ingest |
+| `./configs` | `/app/configs` | Application and vector-store configuration |
+
+These mounts are read-only. Keep the files and directories present on the host before starting the services.
+
+#### 2. Start Ollama on the host
+
+Quit any running Ollama instance before starting it with the following settings in a separate PowerShell window:
+
+```powershell
+$env:OLLAMA_HOST = "0.0.0.0:11434"
+ollama serve
+```
+
+Keep this window open. The backend connects to Ollama through `http://host.docker.internal:11434`, as configured in `docker-compose.yml`. This hostname allows a Docker Desktop container to reach services on the host. See [Docker Desktop networking](https://docs.docker.com/desktop/features/networking/networking-how-tos/) and the [Ollama configuration guide](https://docs.ollama.com/faq).
+
+If Ollama fails to initialize CUDA on Windows, you can temporarily test CPU inference. Stop the existing Ollama process, then start it from PowerShell with:
+
+```powershell
+$env:CUDA_VISIBLE_DEVICES = "-1"
+$env:OLLAMA_HOST = "0.0.0.0:11434"
+ollama serve
+```
+
+This setting applies to the Ollama process started from that window. CPU inference may be slower. See [Ollama GPU selection](https://docs.ollama.com/gpu#gpu-selection).
+
+#### 3. Build the shared image and start both services
+
+Build the image through the backend service:
+
+```powershell
+docker compose build backend
+```
+
+After the build succeeds, start both services using the local image:
+
+```powershell
+docker compose up -d --no-build --pull never
+```
+
+Building first ensures the frontend can reuse `paper-assistant:latest`. The `--pull never` option prevents Compose from trying to download this project image from a registry.
+
+Check the containers and follow the backend startup logs:
+
+```powershell
+docker compose ps
+docker compose logs -f backend
+```
+
+Wait for `Application startup complete` before sending a question. Pressing `Ctrl+C` exits log following while the containers continue running in the background.
+
+#### 4. Open the application and add documents
+
+Open the [Streamlit UI](http://localhost:8501). The [API documentation](http://localhost:8000/docs) and [health endpoint](http://localhost:8000/health) are available on port 8000. Inside the Docker network, the frontend connects to `http://backend:8000` through `API_BASE_URL`.
+
+Copy PDFs into the host's `papers/` directory. In the UI, select **Folder**, enter the container path below, and click **Add documents**:
+
+```text
+/app/papers
+```
+
+For **PDF files**, enter one container path per line, for example:
+
+```text
+/app/papers/paper_1.pdf
+/app/papers/paper_2.pdf
+```
+
+For PDFs inside a subfolder, enter that folder's container path, such as `/app/papers/topic`. Folder ingestion reads PDFs directly inside the selected folder and does not recursively scan subfolders. Adding PDF files to the mounted directory does not require rebuilding the image; ingestion is triggered by **Add documents**.
+
+#### 5. Apply changes and stop the application
+
+After changing the mounted configuration files or `.env`, restart the backend to load the new settings:
+
+```powershell
+docker compose restart backend
+```
+
+After changing Python source, `requirements.txt`, or the Dockerfile, rebuild the image and update the containers:
+
+```powershell
+docker compose build backend
+docker compose up -d --no-build --pull never
+```
+
+For changes to Compose settings such as ports, environment variables, or mounts, run `docker compose up -d --no-build --pull never` to update the containers.
+
+To stop and remove the application containers:
+
+```powershell
+docker compose down
+```
+
+The local image, bind-mounted files, and Supabase database remain available. Start the application again with `docker compose up -d --no-build --pull never`.
