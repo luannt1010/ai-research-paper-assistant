@@ -1,32 +1,30 @@
 services:
-  db:
-    image: pgvector/pgvector:pg16
-    container_name: rag_chatbot_pgvector
+  backend:
+    build:
+      context: . # docker cần đọc nhiều file config, requirements...
+      dockerfile: Dockerfile
+    image: paper-assistant:latest # Đặt tên sau khi build
+    ports:
+      - "127.0.0.1:8000:8000" #ĐỊA_CHỈ_MÁY_BẠN:PORT_MÁY_BẠN:PORT_TRONG_CONTAINER
+    environment:
+      OLLAMA_HOST: http://host.docker.internal:11434 #địa chỉ để docker truy cập ollama trên máy host
+    volumes:
+      - ./.env:/app/.env:ro #ĐƯỜNG_DẪN_TRÊN_WINDOWS:ĐƯỜNG_DẪN_TRONG_CONTAINER:QUYỀN
+      - ./papers:/app/papers:ro
+      - ./configs:/app/configs:ro
     restart: unless-stopped
 
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+# context xác định đường dẫn đến thư mục chứa Dockerfile hoặc URL đến kho lưu trữ Git.
 
+  frontend:
+    image: paper-assistant:latest
     ports:
-      - "127.0.0.1:${POSTGRES_HOST_PORT}:5432"
+      - "127.0.0.1:8501:8501"
+    command: ["python", "-m", "streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+    environment:
+      API_BASE_URL: "http://backend:8000"
 
-    volumes:
-      - rag_pgdata:/var/lib/postgresql/data
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-
-volumes:
-  rag_pgdata:
-    name: rag_chatbot_pgdata_clean
+#  database:
+#    image: pgvector/pgvector:pg16
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
